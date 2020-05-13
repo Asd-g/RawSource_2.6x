@@ -143,7 +143,7 @@ void RawSource::setProcess(const char* pix_type)
     table["YUVA422P16"] = make_tuple(VideoInfo::CS_YUVA422P16,  Y, U, V, A, 4, write_planar);
     table["YUVA422PS"]  = make_tuple(VideoInfo::CS_YUVA422PS,   Y, U, V, A, 4, write_planar);
 
-    table["P210"]       = make_tuple(VideoInfo::CS_YUV422P16,   Y, U, V, X, 2, write_packed_chroma_16);
+    table["P210"]       = make_tuple(VideoInfo::CS_YUV422P10,   Y, U, V, X, 2, write_packed_chroma_16);
     table["P216"]       = make_tuple(VideoInfo::CS_YUV422P16,   Y, U, V, X, 2, write_packed_chroma_16);
 
     table["YV411"]      = make_tuple(VideoInfo::CS_YV411,       Y, V, U, X, 3, write_planar);
@@ -155,22 +155,22 @@ void RawSource::setProcess(const char* pix_type)
     table["IYUV"]       = make_tuple(VideoInfo::CS_I420,        Y, U, V, X, 3, write_planar);
     table["YUV420P8"]   = make_tuple(VideoInfo::CS_I420,        Y, U, V, X, 3, write_planar);
     table["YUV420P9"]   = make_tuple(VideoInfo::CS_YUV420P10,   Y, U, V, X, 3, write_planar_9);
-    table["YUV420P10"]  = make_tuple(VideoInfo::CS_YUV420P16,   Y, U, V, X, 3, write_planar);
-    table["YUV420P12"]  = make_tuple(VideoInfo::CS_YUV420P16,   Y, U, V, X, 3, write_planar);
-    table["YUV420P14"]  = make_tuple(VideoInfo::CS_YUV420P16,   Y, U, V, X, 3, write_planar);
+    table["YUV420P10"]  = make_tuple(VideoInfo::CS_YUV420P10,   Y, U, V, X, 3, write_planar);
+    table["YUV420P12"]  = make_tuple(VideoInfo::CS_YUV420P12,   Y, U, V, X, 3, write_planar);
+    table["YUV420P14"]  = make_tuple(VideoInfo::CS_YUV420P14,   Y, U, V, X, 3, write_planar);
     table["YUV420P16"]  = make_tuple(VideoInfo::CS_YUV420P16,   Y, U, V, X, 3, write_planar);
     table["YUV420PS"]   = make_tuple(VideoInfo::CS_YUV420PS,    Y, U, V, X, 3, write_planar);
 
     table["YUVA420P8"]  = make_tuple(VideoInfo::CS_YUVA420,     Y, U, V, A, 4, write_planar);
-    table["YUVA420P10"] = make_tuple(VideoInfo::CS_YUVA420P16,  Y, U, V, A, 4, write_planar);
-    table["YUVA420P12"] = make_tuple(VideoInfo::CS_YUVA420P16,  Y, U, V, A, 4, write_planar);
-    table["YUVA420P14"] = make_tuple(VideoInfo::CS_YUVA420P16,  Y, U, V, A, 4, write_planar);
+    table["YUVA420P10"] = make_tuple(VideoInfo::CS_YUVA420P10,  Y, U, V, A, 4, write_planar);
+    table["YUVA420P12"] = make_tuple(VideoInfo::CS_YUVA420P12,  Y, U, V, A, 4, write_planar);
+    table["YUVA420P14"] = make_tuple(VideoInfo::CS_YUVA420P14,  Y, U, V, A, 4, write_planar);
     table["YUVA420P16"] = make_tuple(VideoInfo::CS_YUVA420P16,  Y, U, V, A, 4, write_planar);
     table["YUVA420PS"]  = make_tuple(VideoInfo::CS_YUVA420PS,   Y, U, V, A, 4, write_planar);
 
     table["NV12"]       = make_tuple(VideoInfo::CS_I420,        Y, U, V, X, 2, write_packed_chroma_8);
     table["NV21"]       = make_tuple(VideoInfo::CS_YV12,        Y, V, U, X, 2, write_packed_chroma_8);
-    table["P010"]       = make_tuple(VideoInfo::CS_YUV420P16,   Y, U, V, X, 2, write_packed_chroma_16);
+    table["P010"]       = make_tuple(VideoInfo::CS_YUV420P10,   Y, U, V, X, 2, write_packed_chroma_16);
     table["P016"]       = make_tuple(VideoInfo::CS_YUV420P16,   Y, U, V, X, 2, write_packed_chroma_16);
 
     table["Y8"]         = make_tuple(VideoInfo::CS_Y8,          Y, X, X, X, 1, write_planar);
@@ -246,23 +246,54 @@ RawSource::RawSource(const char *source, const int width, const int height,
     std::vector<rindex> rawindex;
     set_rawindex(rawindex, a_index, header_offset, frame_offset, framesize);
 
-    auto env2 = static_cast<IScriptEnvironment2*>(env);
+    bool has_at_least_v8 = true;
+    try { env->CheckVersion(8); }
+    catch (const AvisynthError&) { has_at_least_v8 = false; }
+
     auto free_buffer = [](void* p, ise_t* e) {
-        static_cast<IScriptEnvironment2*>(e)->Free(p);
-        p = nullptr;
+        bool has_at_least_v8 = true;
+        try { e->CheckVersion(8); }
+        catch (const AvisynthError&) { has_at_least_v8 = false; }
+
+        if (has_at_least_v8)
+        {
+            static_cast<IScriptEnvironment*>(e)->Free(p);
+            p = nullptr;
+        }
+        else
+        {
+            _aligned_free(p);
+            p = nullptr;
+        }
     };
 
     //create full index and get number of frames.
-    void* b = env2->Allocate((maxframe + 1) * sizeof(i_struct), 8, AVS_NORMAL_ALLOC);
-    validate(!b, "failed to allocate index array.");
-    env->AtExit(free_buffer, b);
-    index = reinterpret_cast<i_struct*>(b);
-    vi.num_frames = generate_index(index, rawindex, framesize, fileSize);
+    if (has_at_least_v8)
+    {
+        void* b = env->Allocate((static_cast<int64_t>(maxframe) + 1) * sizeof(i_struct), 8, AVS_NORMAL_ALLOC);
+        validate(!b, "failed to allocate index array.");
+        env->AtExit(free_buffer, b);
+        index = reinterpret_cast<i_struct*>(b);
+        vi.num_frames = generate_index(index, rawindex, framesize, fileSize);
 
-    b = env2->Allocate(vi.BytesFromPixels(vi.width * vi.height), 64, AVS_NORMAL_ALLOC);
-    validate(!b, "failed to allocate read buffer.");
-    env->AtExit(free_buffer, b);
-    rawbuf = reinterpret_cast<uint8_t*>(b);
+        b = env->Allocate(vi.BytesFromPixels(vi.width * vi.height), 64, AVS_NORMAL_ALLOC);
+        validate(!b, "failed to allocate read buffer.");
+        env->AtExit(free_buffer, b);
+        rawbuf = reinterpret_cast<uint8_t*>(b);
+    }
+    else
+    {
+        void* b = _aligned_malloc((static_cast<int64_t>(maxframe) + 1) * sizeof(i_struct), 8);
+        validate(!b, "failed to allocate index array.");
+        env->AtExit(free_buffer, b);
+        index = reinterpret_cast<i_struct*>(b);
+        vi.num_frames = generate_index(index, rawindex, framesize, fileSize);
+
+        b = _aligned_malloc(vi.BytesFromPixels(vi.width * vi.height), 64);
+        validate(!b, "failed to allocate read buffer.");
+        env->AtExit(free_buffer, b);
+        rawbuf = reinterpret_cast<uint8_t*>(b);
+    }
 
 }
 

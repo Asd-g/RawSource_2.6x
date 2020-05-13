@@ -158,7 +158,7 @@ void set_rawindex(std::vector<rindex>& rawindex, const char* index,
         FILE* indexfile = fopen(index, "r");
         validate(!indexfile, "Cannot open indexfile.");
         fseek(indexfile, 0, SEEK_END);
-        read_buff.resize(ftell(indexfile) + 1, 0);
+        read_buff.resize(static_cast<int64_t>(ftell(indexfile)) + 1, 0);
         fseek(indexfile, 0, SEEK_SET);
         fread(read_buff.data(), 1, read_buff.size() - 1, indexfile);
         fclose(indexfile);
@@ -216,8 +216,8 @@ int generate_index(i_struct* index, std::vector<rindex>& rawindex,
         }
         frame++;
 
-        if ((p_ri > 0) && (rawindex[p_ri - 1].number + big_steps * big_frame_step == frame)) {
-            bytepos = rawindex[p_ri - 1].bytepos + big_delta * big_steps;
+        if ((p_ri > 0) && (rawindex[static_cast<int64_t>(p_ri) - 1].number + big_steps * big_frame_step == frame)) {
+            bytepos = rawindex[static_cast<int64_t>(p_ri) - 1].bytepos + static_cast<int64_t>(big_delta) * big_steps;
             big_steps++;
             index[frame].type = 'B';
         } else {
@@ -231,17 +231,17 @@ int generate_index(i_struct* index, std::vector<rindex>& rawindex,
         }
 
         //check for new delta and big_delta
-        if ((p_ri > 0) && (rawindex[p_ri].number == rawindex[p_ri-1].number + 1)) {
-            delta = (int)(rawindex[p_ri].bytepos - rawindex[p_ri - 1].bytepos);
+        if ((p_ri > 0) && (rawindex[p_ri].number == rawindex[static_cast<int64_t>(p_ri)-1].number + 1)) {
+            delta = (int)(rawindex[p_ri].bytepos - rawindex[static_cast<int64_t>(p_ri) - 1].bytepos);
         } else if (p_ri > 1) {
             //if more than 1 frame difference and
             //2 successive equal distances then remember as big_delta
             //if second delta < first delta then reset
-            if (rawindex[p_ri].number - rawindex[p_ri - 1].number == rawindex[p_ri - 1].number - rawindex[p_ri - 2].number) {
-                big_frame_step = rawindex[p_ri].number - rawindex[p_ri - 1].number;
-                big_delta = (int)(rawindex[p_ri].bytepos - rawindex[p_ri - 1].bytepos);
+            if (rawindex[p_ri].number - rawindex[static_cast<int64_t>(p_ri) - 1].number == rawindex[static_cast<int64_t>(p_ri) - 1].number - rawindex[static_cast<int64_t>(p_ri) - 2].number) {
+                big_frame_step = rawindex[p_ri].number - rawindex[static_cast<int64_t>(p_ri) - 1].number;
+                big_delta = (int)(rawindex[p_ri].bytepos - rawindex[static_cast<int64_t>(p_ri) - 1].bytepos);
             } else {
-                if ((rawindex[p_ri].number - rawindex[p_ri - 1].number) < (rawindex[p_ri - 1].number - rawindex[p_ri - 2].number)) {
+                if ((rawindex[p_ri].number - rawindex[static_cast<int64_t>(p_ri) - 1].number) < (rawindex[static_cast<int64_t>(p_ri) - 1].number - rawindex[static_cast<int64_t>(p_ri) - 2].number)) {
                     big_delta = 0;
                     big_frame_step = 0;
                 }

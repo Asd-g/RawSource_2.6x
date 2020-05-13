@@ -93,7 +93,7 @@ write_packed_chroma(int fd, PVideoFrame& dst, uint8_t* buff, int* order,
             dstp1[x] = buff_uv[2 * x];
             dstp2[x] = buff_uv[2 * x + 1];
         }
-        buff_uv += width * 2;
+        buff_uv += static_cast<int64_t>(width) * 2;
         dstp1 += pitch;
         dstp2 += pitch;
     }
@@ -161,7 +161,7 @@ void __stdcall
 write_black_frame(PVideoFrame& dst, const VideoInfo& vi) noexcept
 {
     uint8_t* dstp = dst->GetWritePtr();
-    size_t size = dst->GetPitch() * dst->GetHeight();
+    size_t size = static_cast<int64_t>(dst->GetPitch()) * dst->GetHeight();
 
     if (vi.IsYUY2()) {
         uint16_t* d = reinterpret_cast<uint16_t*>(dstp);
@@ -183,7 +183,7 @@ write_black_frame(PVideoFrame& dst, const VideoInfo& vi) noexcept
         vi.IsYUV() ? PLANAR_V : PLANAR_R,
     };
 
-    size = dst->GetPitch(planes[0]) * dst->GetHeight(planes[1]);
+    size = static_cast<int64_t>(dst->GetPitch(planes[0])) * dst->GetHeight(planes[1]);
 
     if (vi.ComponentSize() == 1) {
         uint8_t val = vi.IsYUV() ? 0x80 : 0;
