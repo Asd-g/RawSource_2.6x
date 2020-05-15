@@ -197,7 +197,6 @@ write_black_frame(PVideoFrame& dst, const VideoInfo& vi) noexcept
     } else {
         size /= sizeof(float);
         float val = vi.IsYUV() ? 0.5f : 0.0f;
-        float* d = reinterpret_cast<float*>(dstp);
         std::fill_n(reinterpret_cast<float*>(dst->GetWritePtr(planes[0])), size, val);
         std::fill_n(reinterpret_cast<float*>(dst->GetWritePtr(planes[1])), size, val);
     }

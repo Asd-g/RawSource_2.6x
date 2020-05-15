@@ -28,6 +28,7 @@ class RawSource : public IClip {
     int order[4];
     int col_count;
     bool show;
+    bool has_at_least_v8;
 
     uint8_t* rawbuf;
     i_struct* index;
@@ -207,7 +208,7 @@ RawSource::RawSource(const char *source, const int width, const int height,
                      const char *ptype, const int fpsnum, const int fpsden,
                      const char *a_index, const bool s, ise_t* env) : show(s)
 {
-    fileHandle = _open(source, _O_BINARY | _O_RDONLY);
+    _sopen_s(&fileHandle, source, _O_BINARY | _O_RDONLY, _SH_DENYWR, 0);
     validate(fileHandle == -1, "Cannot open videofile.");
 
     fileSize = _filelengthi64(fileHandle);
@@ -220,7 +221,7 @@ RawSource::RawSource(const char *source, const int width, const int height,
     vi.SetFieldBased(false);
 
     char pix_type[16] = {};
-    strcpy(pix_type, ptype);
+    strcpy_s(pix_type, ptype);
 
     int64_t header_offset = 0;
     int64_t frame_offset = 0;
@@ -230,7 +231,7 @@ RawSource::RawSource(const char *source, const int width, const int height,
         char* data = read_buff.data();
         _read(fileHandle, data, read_buff.size()); //read some bytes and test on header
         if (parse_y4m(read_buff, vi, header_offset, frame_offset)) {
-            strcpy(pix_type, data);
+            strcpy_s(pix_type, data);
         }
     }
 
@@ -246,7 +247,7 @@ RawSource::RawSource(const char *source, const int width, const int height,
     std::vector<rindex> rawindex;
     set_rawindex(rawindex, a_index, header_offset, frame_offset, framesize);
 
-    bool has_at_least_v8 = true;
+    has_at_least_v8 = true;
     try { env->CheckVersion(8); }
     catch (const AvisynthError&) { has_at_least_v8 = false; }
 
@@ -301,6 +302,14 @@ RawSource::RawSource(const char *source, const int width, const int height,
 PVideoFrame __stdcall RawSource::GetFrame(int n, ise_t* env)
 {
     auto dst = env->NewVideoFrame(vi);
+
+    if (has_at_least_v8)
+    {
+        AVSMap* props = env->getFramePropsRW(dst);
+        env->propSetInt(props, "_BitsPerComponent", vi.BitsPerComponent(), 0);
+        env->propSetInt(props, "_FrameRateNumerator", vi.fps_numerator, 0);
+        env->propSetInt(props, "_FrameRateDenominator", vi.fps_denominator, 0);
+    }
 
     if (_lseeki64(fileHandle, index[n].index, SEEK_SET) == -1L) {
         // black frame with message

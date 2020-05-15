@@ -33,7 +33,7 @@ bool parse_y4m(std::vector<char>& header, VideoInfo& vi,
 
     vi.height = 0;
     vi.width = 0;
-    strcpy(buff, "YUV420P8");
+    strcpy_s(buff, 9, "YUV420P8");
 
     unsigned int numerator = 0;
     unsigned int denominator = 0;
@@ -43,12 +43,12 @@ bool parse_y4m(std::vector<char>& header, VideoInfo& vi,
     for (i = st_magic_len; i < buffsize && buff[i] != '\n'; ++i) {
         if (!strncmp(buff + i, " W", 2)) {
             i += 2;
-            sscanf(buff + i, "%d", &vi.width);
+            sscanf_s(buff + i, "%d", &vi.width);
         }
 
         if (!strncmp(buff + i, " H", 2)) {
             i += 2;
-            sscanf(buff + i, "%d", &vi.height);
+            sscanf_s(buff + i, "%d", &vi.height);
         }
 
         if (!strncmp(buff + i, " I", 2)) {
@@ -63,58 +63,58 @@ bool parse_y4m(std::vector<char>& header, VideoInfo& vi,
 
         if (!strncmp(buff + i, " F", 2)) {
             i += 2;
-            sscanf(buff + i, "%u:%u", &numerator, &denominator);
+            sscanf_s(buff + i, "%u:%u", &numerator, &denominator);
             validate(numerator == 0 || denominator == 0, header_err);
             vi.SetFPS(numerator, denominator);
         }
 
         if (!strncmp(buff + i, " C", 2)) {
             i += 2;
-            sscanf(buff + i, "%s", ctag);
+            sscanf_s(buff + i, "%s", ctag, sizeof(ctag));
             if (!strncmp(ctag, "444alpha", 8)) {
-                strcpy(buff, "YUVA444");
+                strcpy_s(buff, 8, "YUVA444");
             } else if (!strncmp(ctag, "444p16", 6)) {
-                strcpy(buff, "YUV444P16");
+                strcpy_s(buff, 10, "YUV444P16");
             } else if (!strncmp(ctag, "444p14", 6)) {
-                strcpy(buff, "YUV444P14");
+                strcpy_s(buff, 10, "YUV444P14");
             } else if (!strncmp(ctag, "444p12", 6)) {
-                strcpy(buff, "YUV444P12");
+                strcpy_s(buff, 10, "YUV444P12");
             } else if (!strncmp(ctag, "444p10", 6)) {
-                strcpy(buff, "YUV444P10");
+                strcpy_s(buff, 10, "YUV444P10");
             } else if (!strncmp(ctag, "444p9", 5)) {
-                strcpy(buff, "YUV444P9");
+                strcpy_s(buff, 9, "YUV444P9");
             } else if (!strncmp(ctag, "444", 3)) {
-                strcpy(buff, "YUV444P8");
+                strcpy_s(buff, 9, "YUV444P8");
             } else if (!strncmp(ctag, "422p16", 6)) {
-                strcpy(buff, "YUV422P16");
+                strcpy_s(buff, 10, "YUV422P16");
             } else if (!strncmp(ctag, "422p14", 6)) {
-                strcpy(buff, "YUV422P14");
+                strcpy_s(buff, 10, "YUV422P14");
             } else if (!strncmp(ctag, "422p12", 6)) {
-                strcpy(buff, "YUV422P12");
+                strcpy_s(buff, 10, "YUV422P12");
             } else if (!strncmp(ctag, "422p10", 6)) {
-                strcpy(buff, "YUV422P10");
+                strcpy_s(buff, 10, "YUV422P10");
             } else if (!strncmp(ctag, "422p9", 5)) {
-                strcpy(buff, "YUV422P9");
+                strcpy_s(buff, 9, "YUV422P9");
             } else if (!strncmp(ctag, "422", 3)) {
-                strcpy(buff, "YUV422P8");
+                strcpy_s(buff, 9, "YUV422P8");
             } else if (!strncmp(ctag, "411", 3)) {
-                strcpy(buff, "YUV411P8");
+                strcpy_s(buff, 9, "YUV411P8");
             } else if (!strncmp(ctag, "420p16", 6)) {
-                strcpy(buff, "YUV420P16");
+                strcpy_s(buff, 10, "YUV420P16");
             } else if (!strncmp(ctag, "420p14", 6)) {
-                strcpy(buff, "YUV420P14");
+                strcpy_s(buff, 10, "YUV420P14");
             } else if (!strncmp(ctag, "420p12", 6)) {
-                strcpy(buff, "YUV420P12");
+                strcpy_s(buff, 10, "YUV420P12");
             } else if (!strncmp(ctag, "420p10", 6)) {
-                strcpy(buff, "YUV420P10");
+                strcpy_s(buff, 10, "YUV420P10");
             } else if (!strncmp(ctag, "420p9", 5)) {
-                strcpy(buff, "YUV420P9");
+                strcpy_s(buff, 9, "YUV420P9");
             } else if (!strncmp(ctag, "420", 3)) {
-                strcpy(buff, "YUV420P8");
+                strcpy_s(buff, 9, "YUV420P8");
             } else if (!strncmp(ctag, "mono16", 6)) {
-                strcpy(buff, "GREY16");
+                strcpy_s(buff, 7, "GREY16");
             } else if (!strncmp(ctag, "mono", 4)) {
-                strcpy(buff, "GREY8");
+                strcpy_s(buff, 6, "GREY8");
             } else {
                 throw std::runtime_error(header_err);
             }
@@ -155,7 +155,8 @@ void set_rawindex(std::vector<rindex>& rawindex, const char* index,
     std::vector<char> read_buff;
     const char * pos = strchr(index, '.');
     if (pos != nullptr) { //assume indexstring is a filename
-        FILE* indexfile = fopen(index, "r");
+        FILE* indexfile;
+        fopen_s(&indexfile, index, "r");
         validate(!indexfile, "Cannot open indexfile.");
         fseek(indexfile, 0, SEEK_END);
         read_buff.resize(static_cast<int64_t>(ftell(indexfile)) + 1, 0);
@@ -164,21 +165,21 @@ void set_rawindex(std::vector<rindex>& rawindex, const char* index,
         fclose(indexfile);
     } else {
         read_buff.resize(strlen(index) + 1, 0);
-        strcpy(read_buff.data(), index);
+        strcpy_s(read_buff.data(), strlen(index) + 1, index);
     }
 
     //read all framenr:bytepos pairs
     const char* seps = " \n";
-    for (char* token = strtok(read_buff.data(), seps);
+    for (char* token = strtok_s(read_buff.data(), seps, &token);
             token != nullptr;
-            token = strtok(nullptr, seps)) {
+            token = strtok_s(nullptr, seps, &token)) {
         int num1 = -1;
         int64_t num2 = -1;
         char* p_del = strchr(token, ':');
         if (!p_del)
             break;
-        sscanf(token, "%d", &num1);
-        sscanf(p_del + 1, "%" SCNi64, &num2);
+        sscanf_s(token, "%d", &num1);
+        sscanf_s(p_del + 1, "%" SCNi64, &num2);
 
         if ((num1 < 0) || (num2 < 0))
             break;
