@@ -8,7 +8,11 @@ RawSourcePlus - reads raw video data files
 */
 
 
+#ifdef _WIN32
 #include <io.h>
+#else
+#include "win_import_min.h"
+#endif
 #include <fcntl.h>
 #include <cstdint>
 #include <emmintrin.h>
