@@ -15,12 +15,16 @@ RawSourcePlus - reads raw video data files
 #include <cstring>
 #include <vector>
 #include <stdexcept>
+#ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #define VC_EXTRALEAN
 #define NOMINMAX
 #define NOGDI
 #include <windows.h>
 #include <avisynth.h>
+#else
+#include <avisynth/avisynth.h>
+#endif
 
 #pragma warning(disable: 4996)
 
@@ -47,11 +51,19 @@ struct i_struct {
 bool parse_y4m(std::vector<char>& header, VideoInfo& vi,
                int64_t& header_offset, int64_t& frame_offset);
 
+#ifdef __GNUC__
+void set_rawindex(std::vector<struct rindex>& r, const char* index,
+#else
 void set_rawindex(std::vector<rindex>& r, const char* index,
+#endif
                   int64_t header_offset, int64_t frame_offset,
                   size_t framesize);
 
+#ifdef __GNUC__
+int generate_index(i_struct* index, std::vector<struct rindex>& rawindex,
+#else
 int generate_index(i_struct* index, std::vector<rindex>& rawindex,
+#endif
                    size_t framesize, int64_t filesize);
 
 void __stdcall

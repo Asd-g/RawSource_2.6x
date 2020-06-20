@@ -8,6 +8,10 @@ RawSourcePlus - reads raw video data files
 */
 
 
+#ifndef _WIN32
+#define _FILE_OFFSET_BITS     64
+#include "win_import_min.h"
+#endif
 #include <cstdio>
 #include <cinttypes>
 #include "common.h"
@@ -140,8 +144,11 @@ bool parse_y4m(std::vector<char>& header, VideoInfo& vi,
 }
 
 
-
+#ifdef __GNUC__
+void set_rawindex(std::vector<struct rindex>& rawindex, const char* index,
+#else
 void set_rawindex(std::vector<rindex>& rawindex, const char* index,
+#endif
                   int64_t header_offset, int64_t frame_offset, size_t framesize)
 {
     rawindex.reserve(2);
@@ -156,8 +163,13 @@ void set_rawindex(std::vector<rindex>& rawindex, const char* index,
     const char * pos = strchr(index, '.');
     if (pos != nullptr) { //assume indexstring is a filename
         FILE* indexfile;
+#ifdef _WIN32
         fopen_s(&indexfile, index, "r");
         validate(!indexfile, "Cannot open indexfile.");
+#else
+        indexfile = fopen(index, "r");
+        validate(indexfile == NULL, "Cannot open indexfile.");
+#endif
         fseek(indexfile, 0, SEEK_END);
         read_buff.resize(static_cast<int64_t>(ftell(indexfile)) + 1, 0);
         fseek(indexfile, 0, SEEK_SET);
@@ -191,8 +203,11 @@ void set_rawindex(std::vector<rindex>& rawindex, const char* index,
 
 }
 
-
+#ifdef __GNUC__
+int generate_index(i_struct* index, std::vector<struct rindex>& rawindex,
+#else
 int generate_index(i_struct* index, std::vector<rindex>& rawindex,
+#endif
                    size_t framesize, int64_t filesize)
 {
     int frame = 0;          //framenumber

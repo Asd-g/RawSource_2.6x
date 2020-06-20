@@ -8,7 +8,13 @@
 */
 
 
+#ifdef _WIN32
 #include <io.h>
+#else
+#define _FILE_OFFSET_BITS     64
+#include "win_import_min.h"
+#include <sys/stat.h>
+#endif
 #include <fcntl.h>
 #include <malloc.h>
 #include <algorithm>
@@ -208,11 +214,26 @@ RawSource::RawSource(const char *source, const int width, const int height,
                      const char *ptype, const int fpsnum, const int fpsden,
                      const char *a_index, const bool s, ise_t* env) : show(s)
 {
+#ifdef _WIN32
     _sopen_s(&fileHandle, source, _O_BINARY | _O_RDONLY, _SH_DENYWR, 0);
     validate(fileHandle == -1, "Cannot open videofile.");
 
     fileSize = _filelengthi64(fileHandle);
     validate(fileSize == -1L, "Cannot get videofile length.");
+#else
+    struct flock fl;
+    struct stat buf;
+    fileHandle = open(source, O_RDONLY);
+    validate(fileHandle == -1, "Cannot open videofile.");
+    fl.l_type = F_RDLCK;
+    fl.l_whence = SEEK_SET;
+    fl.l_start = 0;
+    fl.l_len = 0;
+    validate((fcntl(fileHandle, F_SETLKW, &fl) == -1), "Cannot lock videofile.");
+
+    validate((fstat(fileHandle, &buf) != 0), "Cannot get videofile length.");
+    fileSize = buf.st_size;
+#endif
 
     memset(&vi, 0, sizeof(VideoInfo));
     vi.width = width;
@@ -221,7 +242,7 @@ RawSource::RawSource(const char *source, const int width, const int height,
     vi.SetFieldBased(false);
 
     char pix_type[16] = {};
-    strcpy_s(pix_type, ptype);
+    strcpy_s(pix_type, 16, ptype);
 
     int64_t header_offset = 0;
     int64_t frame_offset = 0;
@@ -231,7 +252,7 @@ RawSource::RawSource(const char *source, const int width, const int height,
         char* data = read_buff.data();
         _read(fileHandle, data, read_buff.size()); //read some bytes and test on header
         if (parse_y4m(read_buff, vi, header_offset, frame_offset)) {
-            strcpy_s(pix_type, data);
+            strcpy_s(pix_type, 16, data);
         }
     }
 
@@ -244,7 +265,11 @@ RawSource::RawSource(const char *source, const int width, const int height,
     validate(maxframe < 1, "File too small for even one frame.");
 
     //index build using string descriptor
+#ifdef __GNUC__
+    std::vector<struct rindex> rawindex;
+#else
     std::vector<rindex> rawindex;
+#endif
     set_rawindex(rawindex, a_index, header_offset, frame_offset, framesize);
 
     has_at_least_v8 = true;
