@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.1)
 
 project(RawSourcePlus)
 
-find_library(AVS_FOUND avisynth)
+find_path(AVS_FOUND avisynth.h HINTS /usr/include /usr/local/include PATH_SUFFIXES avisynth)
 if (NOT AVS_FOUND)
     message(FATAL_ERROR "AviSynth+ not found.")
 else()
