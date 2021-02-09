@@ -15,7 +15,7 @@ This filter is only for Avisynth+MT. Avisynth2.6 is not supported.
 #### How to use
 
 ```
-RawSourcePlus (string "file", int "width", int "height", string "pixel\_type", int "fpsnum", int "fpsden", string "index", bool "show")
+RawSourcePlus (string "file", int "width", int "height", string "pixel\_type", int "fpsnum", int "fpsden", string "index", bool "show", int "sarnum", int "sarden")
 ```
 
 RawSourcePlus opens a video file which contains 8bit, 9bit, 10bit, 16bit or float YUV444, YUV422, YUV411, YUV420, Gray, or RGB video data.
