@@ -49,7 +49,7 @@ Supported pixel_types are:
 
 The default value of framerate is 25fps, you can change it with specified 'fpsnum' and 'fpsden' if you need (e.g. for NTSC-material).
 
-With show=true the actually used byteposition for that frame is displayed, followed by:
+With show=true the actually used byteposition for that frame is displayed, followed by:\
 K = position given in index is used\
 D = position by adding current delta is used\
 B = position by adding currend big\_delta is used
@@ -102,6 +102,31 @@ You don't have to set it yourself.
 #### Exported variables:
 
 FFSAR_NUM, FFSAR_DEN, FFSAR.
+
+#### Building
+
+##### Windows
+
+Use solution files.
+
+##### Linux
+
+###### Requirements
+
+- Git
+- C++11 compiler
+- CMake >= 3.16
+
+```
+git clone https://github.com/Asd-g/RawSource_2.6x && \
+cd RawSource_2.6x && \
+mkdir build && \
+cd build && \
+
+cmake ..
+make -j$(nproc)
+sudo make install
+```
 
 #### LICENSE:
 
