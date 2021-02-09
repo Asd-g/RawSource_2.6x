@@ -98,3 +98,11 @@ The index string is treated as a filename, if there is an "." inside. The data i
 
 This filter is automatically registerd as MT\_SERIALIZED.\
 You don't have to set it yourself.
+
+#### Exported variables:
+
+FFSAR_NUM, FFSAR_DEN, FFSAR.
+
+#### LICENSE:
+
+Same as the original plugin.
