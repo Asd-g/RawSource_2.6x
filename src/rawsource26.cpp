@@ -35,6 +35,8 @@ class RawSource : public IClip {
     int col_count;
     bool show;
     bool has_at_least_v8;
+    int sar_num;
+    int sar_den;
 
     uint8_t* rawbuf;
     i_struct* index;
@@ -48,7 +50,7 @@ class RawSource : public IClip {
 public:
     RawSource(const char* source, const int width, const int height,
               const char* pix_type, const int fpsnum, const int fpsden,
-              const char* index, const bool show, ise_t* env);
+              const char* index, const bool show, const int sarnum, const int sarden, ise_t* env);
     PVideoFrame __stdcall GetFrame(int n, ise_t *env);
 
     ~RawSource() { _close(fileHandle); }
@@ -212,7 +214,7 @@ void RawSource::setProcess(const char* pix_type)
 
 RawSource::RawSource(const char *source, const int width, const int height,
                      const char *ptype, const int fpsnum, const int fpsden,
-                     const char *a_index, const bool s, ise_t* env) : show(s)
+                     const char *a_index, const bool s, const int sarnum, const int sarden, ise_t* env) : show(s), sar_num(sarnum), sar_den(sarden)
 {
 #ifdef _WIN32
     _sopen_s(&fileHandle, source, _O_BINARY | _O_RDONLY, _SH_DENYWR, 0);
@@ -251,7 +253,7 @@ RawSource::RawSource(const char *source, const int width, const int height,
         std::vector<char> read_buff(256, 0);
         char* data = read_buff.data();
         _read(fileHandle, data, read_buff.size()); //read some bytes and test on header
-        if (parse_y4m(read_buff, vi, header_offset, frame_offset)) {
+        if (parse_y4m(read_buff, vi, header_offset, frame_offset, sar_den, sar_num)) {
             strcpy_s(pix_type, 16, data);
         }
     }
@@ -276,26 +278,14 @@ RawSource::RawSource(const char *source, const int width, const int height,
     try { env->CheckVersion(8); }
     catch (const AvisynthError&) { has_at_least_v8 = false; }
 
-    auto free_buffer = [](void* p, ise_t* e) {
-        bool has_at_least_v8 = true;
-        try { e->CheckVersion(8); }
-        catch (const AvisynthError&) { has_at_least_v8 = false; }
-
-        if (has_at_least_v8)
-        {
-            static_cast<IScriptEnvironment*>(e)->Free(p);
-            p = nullptr;
-        }
-        else
-        {
-            _aligned_free(p);
-            p = nullptr;
-        }
-    };
-
     //create full index and get number of frames.
     if (has_at_least_v8)
     {
+        auto free_buffer = [](void* p, ise_t* e) {
+            static_cast<IScriptEnvironment*>(e)->Free(p);
+            p = nullptr;
+        };
+
         void* b = env->Allocate((static_cast<int64_t>(maxframe) + 1) * sizeof(i_struct), 8, AVS_NORMAL_ALLOC);
         validate(!b, "failed to allocate index array.");
         env->AtExit(free_buffer, b);
@@ -309,6 +299,11 @@ RawSource::RawSource(const char *source, const int width, const int height,
     }
     else
     {
+        auto free_buffer = [](void* p, ise_t* e) {
+            _aligned_free(p);
+            p = nullptr;
+        };
+
         void* b = _aligned_malloc((static_cast<int64_t>(maxframe) + 1) * sizeof(i_struct), 8);
         validate(!b, "failed to allocate index array.");
         env->AtExit(free_buffer, b);
@@ -321,20 +316,16 @@ RawSource::RawSource(const char *source, const int width, const int height,
         rawbuf = reinterpret_cast<uint8_t*>(b);
     }
 
+    env->SetVar(env->Sprintf("%s", "FFSAR_NUM"), sar_num);
+    env->SetVar(env->Sprintf("%s", "FFSAR_DEN"), sar_den);
+    if (sar_num > 0 && sar_den > 0)
+        env->SetVar(env->Sprintf("%s", "FFSAR"), sar_num / static_cast<double>(sar_den));
 }
 
 
 PVideoFrame __stdcall RawSource::GetFrame(int n, ise_t* env)
 {
     auto dst = env->NewVideoFrame(vi);
-
-    if (has_at_least_v8)
-    {
-        AVSMap* props = env->getFramePropsRW(dst);
-        env->propSetInt(props, "_BitsPerComponent", vi.BitsPerComponent(), 0);
-        env->propSetInt(props, "_FrameRateNumerator", vi.fps_numerator, 0);
-        env->propSetInt(props, "_FrameRateDenominator", vi.fps_denominator, 0);
-    }
 
     if (_lseeki64(fileHandle, index[n].index, SEEK_SET) == -1L) {
         // black frame with message
@@ -350,6 +341,15 @@ PVideoFrame __stdcall RawSource::GetFrame(int n, ise_t* env)
         char info[64];
         sprintf(info, "%d : %" PRIi64 " %c", n, index[n].index, index[n].type);
         env->ApplyMessage(&dst, vi, info, vi.width / 2, 0xFFFFFF, 0, 0);
+    }
+
+    if (has_at_least_v8)
+    {
+        AVSMap* props = env->getFramePropsRW(dst);
+        env->propSetInt(props, "_DurationNum", vi.fps_numerator, 0);
+        env->propSetInt(props, "_DurationDen", vi.fps_denominator, 0);
+        env->propSetInt(props, "_SARNum", sar_num, 0);
+        env->propSetInt(props, "_SARDen", sar_den, 0);
     }
 
     return dst;
@@ -371,6 +371,8 @@ AVSValue __cdecl create_rawsource(AVSValue args, void* user_data, ise_t* env)
         const int fpsden = args[5].AsInt(1);
         const char *index = args[6].AsString("");
         const bool show = args[7].AsBool(false);
+        const int sarnum = args[8].AsInt(0);
+        const int sarden = args[9].AsInt(0);
 
         if (width < MIN_WIDTH || height < MIN_HEIGHT) {
             snprintf(buff, 127, "width and height need to be %u x %u or higher.",
@@ -379,21 +381,30 @@ AVSValue __cdecl create_rawsource(AVSValue args, void* user_data, ise_t* env)
         }
 
         validate(strlen(pix_type) > 15, "pixel_type is too long.");
-        validate(fpsnum < 1 || fpsden < 1,
-                 "fpsnum and fpsden need to be 1 or higher.");
+        validate(fpsnum < 1 || fpsden < 1, "fpsnum and fpsden need to be 1 or higher.");
+        validate(sarnum < 0 || sarden < 0, "sarnum and sarden need to be 0 or higher.");
 
-        return new RawSource(source, width, height, pix_type, fpsnum, fpsden,
-                             index, show, env);
+        return new RawSource(
+            source,
+            width,
+            height,
+            pix_type,
+            fpsnum,
+            fpsden,                   
+            index,
+            show,
+            sarnum,
+            sarden,
+            env);
 
     } catch (std::runtime_error& e) {
         env->ThrowError("RawSourcePlus: %s", e.what());
     }
+
     return 0;
 }
 
-
 const AVS_Linkage* AVS_linkage = nullptr;
-
 
 extern "C" __declspec(dllexport) const char* __stdcall
 AvisynthPluginInit3(ise_t* env, const AVS_Linkage* const vectors)
@@ -408,7 +419,9 @@ AvisynthPluginInit3(ise_t* env, const AVS_Linkage* const vectors)
         "[fpsnum]i"
         "[fpsden]i"
         "[index]s"
-        "[show]b";
+        "[show]b"
+        "[sarnum]i"
+        "[sarden]i";
 
     env->AddFunction("RawSourcePlus", args, create_rawsource, nullptr);
 

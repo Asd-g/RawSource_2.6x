@@ -17,8 +17,7 @@ RawSourcePlus - reads raw video data files
 #include "common.h"
 
 
-bool parse_y4m(std::vector<char>& header, VideoInfo& vi,
-               int64_t& header_offset, int64_t& frame_offset)
+bool parse_y4m(std::vector<char>& header, VideoInfo& vi, int64_t& header_offset, int64_t& frame_offset, int& sar_num, int &sar_den)
 {
     const char* header_err = "YUV4MPEG2 header error.";
     const char* unsupported = "This file's YUV4MPEG2 HEADER is unsupported.";
@@ -72,9 +71,15 @@ bool parse_y4m(std::vector<char>& header, VideoInfo& vi,
             vi.SetFPS(numerator, denominator);
         }
 
+        if (!strncmp(buff + i, " A", 2)) {
+            i += 2;
+            sscanf_s(buff + i, "%d:%d", &sar_den, &sar_num);
+            validate(sar_num < 0 || sar_den < 0, header_err);
+        }
+
         if (!strncmp(buff + i, " C", 2)) {
             i += 2;
-            sscanf_s(buff + i, "%s", ctag, sizeof(ctag));
+            sscanf_s(buff + i, "%s", ctag, static_cast<int>(sizeof(ctag)));
             if (!strncmp(ctag, "444alpha", 8)) {
                 strcpy_s(buff, 8, "YUVA444");
             } else if (!strncmp(ctag, "444p16", 6)) {
@@ -125,7 +130,7 @@ bool parse_y4m(std::vector<char>& header, VideoInfo& vi,
         }
     }
 
-    validate(!numerator || !denominator || !vi.width || !vi.height, header_err);
+    validate(!numerator || !denominator || !vi.width || !vi.height || sar_num < 0 || sar_den < 0, header_err);
 
     ++i;
 

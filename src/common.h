@@ -48,8 +48,7 @@ struct i_struct {
 };
 
 
-bool parse_y4m(std::vector<char>& header, VideoInfo& vi,
-               int64_t& header_offset, int64_t& frame_offset);
+bool parse_y4m(std::vector<char>& header, VideoInfo& vi, int64_t& header_offset, int64_t& frame_offset, int& sar_num, int& sar_den);
 
 #ifdef __GNUC__
 void set_rawindex(std::vector<struct rindex>& r, const char* index,
