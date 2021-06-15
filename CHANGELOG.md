@@ -17,3 +17,8 @@ Version 1.0.0
 - Set frame properties _SARNum and _SARDen.
 - Set variables FFSAR_NUM, FFSAR_DEN, FFSAR.
 ```
+
+```
+Version 1.0.1
+- Fixed frame properties _DurationNum and _DurationDen.
+```

@@ -346,8 +346,8 @@ PVideoFrame __stdcall RawSource::GetFrame(int n, ise_t* env)
     if (has_at_least_v8)
     {
         AVSMap* props = env->getFramePropsRW(dst);
-        env->propSetInt(props, "_DurationNum", vi.fps_numerator, 0);
-        env->propSetInt(props, "_DurationDen", vi.fps_denominator, 0);
+        env->propSetInt(props, "_DurationNum", vi.fps_denominator, 0);
+        env->propSetInt(props, "_DurationDen", vi.fps_numerator, 0);
         env->propSetInt(props, "_SARNum", sar_num, 0);
         env->propSetInt(props, "_SARDen", sar_den, 0);
     }
